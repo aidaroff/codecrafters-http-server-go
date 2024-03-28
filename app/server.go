@@ -5,6 +5,7 @@ import (
 	// Uncomment this block to pass the first stage
 	"net"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -32,6 +33,30 @@ func main() {
 		fmt.Println("Failed to read data")
 		os.Exit(1)
 	}
-	fmt.Println("Received: ", string(readbuffer[:n]))
-	conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+
+	request := string(readbuffer[:n])
+	fmt.Println("Received: ", request)
+
+	// parse the request string "GET / HTTP/1.1\r\nUser-Agent: Go-http-client/1.1\r\n"
+	requestLine := strings.Split(request, "\r\n")[0]
+	requestLineParts := strings.Split(requestLine, " ")
+	if len(requestLineParts) != 3 {
+		fmt.Println("Invalid request")
+		os.Exit(1)
+	}
+	path := requestLineParts[1]
+	fmt.Println("Path: ", path)
+	if path == "/" {
+		_, err = conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+		if err != nil {
+			fmt.Println("Failed to write data")
+			os.Exit(1)
+		}
+	} else {
+		_, err = conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+		if err != nil {
+			fmt.Println("Failed to write data")
+			os.Exit(1)
+		}
+	}
 }
