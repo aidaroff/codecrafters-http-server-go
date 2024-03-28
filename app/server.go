@@ -18,10 +18,20 @@ func main() {
 		fmt.Println("Failed to bind to port 4221")
 		os.Exit(1)
 	}
+	defer l.Close()
 
-	_, err = l.Accept()
+	conn, err := l.Accept()
 	if err != nil {
 		fmt.Println("Error accepting connection: ", err.Error())
 		os.Exit(1)
 	}
+	defer conn.Close()
+	readbuffer := make([]byte, 1024)
+	n, err := conn.Read(readbuffer)
+	if err != nil {
+		fmt.Println("Failed to read data")
+		os.Exit(1)
+	}
+	fmt.Println("Received: ", string(readbuffer[:n]))
+	conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 }
