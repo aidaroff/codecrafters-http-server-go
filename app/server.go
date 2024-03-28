@@ -2,30 +2,12 @@ package main
 
 import (
 	"fmt"
-	// Uncomment this block to pass the first stage
 	"net"
 	"os"
 	"strings"
 )
 
-func main() {
-	// You can use print statements as follows for debugging, they'll be visible when running tests.
-	fmt.Println("Logs from your program will appear here!")
-
-	// Uncomment this block to pass the first stage
-
-	l, err := net.Listen("tcp", "0.0.0.0:4221")
-	if err != nil {
-		fmt.Println("Failed to bind to port 4221")
-		os.Exit(1)
-	}
-	defer l.Close()
-
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
-	}
+func handleConnection(conn net.Conn) {
 	defer conn.Close()
 	readbuffer := make([]byte, 1024)
 	n, err := conn.Read(readbuffer)
@@ -47,6 +29,7 @@ func main() {
 	path := requestLineParts[1]
 	fmt.Println("Path: ", path)
 	if path == "/" {
+		fmt.Println("Responding...")
 		_, err = conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 		if err != nil {
 			fmt.Println("Failed to write data")
@@ -56,6 +39,7 @@ func main() {
 		pathParts := strings.Split(path, "/echo/")
 		if len(pathParts) < 2 {
 			fmt.Println("Invalid path")
+			fmt.Println("Responding...")
 			conn.Write([]byte("HTTP/1.1 400 Bad Request\r\n\r\n"))
 			os.Exit(1)
 		}
@@ -66,6 +50,7 @@ func main() {
 		headers := []string{"HTTP/1.1 200 OK", "Content-Type: text/plain", contentLength}
 		response := strings.Join(headers, "\r\n") + "\r\n\r\n" + word
 		fmt.Printf("Response: %s\n", response)
+		fmt.Println("Responding...")
 		_, err = conn.Write([]byte(response))
 		if err != nil {
 			fmt.Println("Failed to write payload data")
@@ -78,6 +63,7 @@ func main() {
 			if strings.HasPrefix(header, "User-Agent:") {
 				userAgent := strings.Split(header, " ")[1]
 				response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Length: %d\r\nContent-Type: text/plain\r\n\r\n%s", len(userAgent), userAgent)
+				fmt.Println("Responding...")
 				_, err = conn.Write([]byte(response))
 				if err != nil {
 					fmt.Println("Failed to write data")
@@ -88,9 +74,29 @@ func main() {
 		}
 	} else {
 		fmt.Println("Invalid path")
+		fmt.Println("Responding...")
 		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 		os.Exit(1)
 	}
 
 	conn.Close()
+}
+
+func main() {
+	l, err := net.Listen("tcp", "0.0.0.0:4221")
+	if err != nil {
+		fmt.Println("Failed to bind to port 4221")
+		os.Exit(1)
+	}
+	defer l.Close()
+
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
+		}
+		go handleConnection(conn)
+	}
+
 }
