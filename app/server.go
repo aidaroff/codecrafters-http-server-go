@@ -52,7 +52,7 @@ func main() {
 			fmt.Println("Failed to write data")
 			os.Exit(1)
 		}
-	} else if strings.HasPrefix(path, "/echo/") {
+	} else if strings.HasPrefix(path, "/echo/") { // STAGE 4
 		pathParts := strings.Split(path, "/echo/")
 		if len(pathParts) < 2 {
 			fmt.Println("Invalid path")
@@ -70,6 +70,21 @@ func main() {
 		if err != nil {
 			fmt.Println("Failed to write payload data")
 			os.Exit(1)
+		}
+	} else if path == "/user-agent" {
+		headersChunk := strings.Split(request, "\r\n\r\n")
+		headers := strings.Split(headersChunk[0], "\r\n")
+		for _, header := range headers {
+			if strings.HasPrefix(header, "User-Agent:") {
+				userAgent := strings.Split(header, " ")[1]
+				response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Length: %d\r\nContent-Type: text/plain\r\n\r\n%s", len(userAgent), userAgent)
+				_, err = conn.Write([]byte(response))
+				if err != nil {
+					fmt.Println("Failed to write data")
+					os.Exit(1)
+				}
+				break
+			}
 		}
 	} else {
 		fmt.Println("Invalid path")
