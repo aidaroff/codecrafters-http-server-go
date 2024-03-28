@@ -52,11 +52,30 @@ func main() {
 			fmt.Println("Failed to write data")
 			os.Exit(1)
 		}
-	} else {
-		_, err = conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
-		if err != nil {
-			fmt.Println("Failed to write data")
+	} else if strings.HasPrefix(path, "/echo/") {
+		pathParts := strings.Split(path, "/echo/")
+		if len(pathParts) < 2 {
+			fmt.Println("Invalid path")
+			conn.Write([]byte("HTTP/1.1 400 Bad Request\r\n\r\n"))
 			os.Exit(1)
 		}
+
+		// for a request path such as /echo/abc/def/ -- everything after "/echo/" is the word
+		word := strings.Join(pathParts[1:], "")
+		contentLength := fmt.Sprintf("Content-Length: %d", len(word))
+		headers := []string{"HTTP/1.1 200 OK", "Content-Type: text/plain", contentLength}
+		response := strings.Join(headers, "\r\n") + "\r\n\r\n" + word
+		fmt.Printf("Response: %s\n", response)
+		_, err = conn.Write([]byte(response))
+		if err != nil {
+			fmt.Println("Failed to write payload data")
+			os.Exit(1)
+		}
+	} else {
+		fmt.Println("Invalid path")
+		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+		os.Exit(1)
 	}
+
+	conn.Close()
 }
