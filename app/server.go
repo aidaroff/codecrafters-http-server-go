@@ -1,13 +1,14 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net"
 	"os"
 	"strings"
 )
 
-func handleConnection(conn net.Conn) {
+func handleConnection(conn net.Conn, directory string) {
 	defer conn.Close()
 	readbuffer := make([]byte, 1024)
 	n, err := conn.Read(readbuffer)
@@ -72,6 +73,27 @@ func handleConnection(conn net.Conn) {
 				break
 			}
 		}
+	} else if strings.HasPrefix(path, "/files/") {
+		filename := strings.Split(path, "/files/")[1]
+		fullFilename := directory + filename
+		fmt.Println("Full filename: ", fullFilename)
+		if _, err := os.Stat(fullFilename); err == nil {
+			content, err := os.ReadFile(fullFilename)
+			if err != nil {
+				fmt.Println("Failed to read file")
+				os.Exit(1)
+			}
+			response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Length: %d\r\nContent-Type: application/octet-stream\r\n\r\n%s", len(content), content)
+			fmt.Println("Responding...")
+			conn.Write([]byte(response))
+		} else if os.IsNotExist(err) {
+			fmt.Println("File not found")
+			fmt.Println("Responding...")
+			conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+		} else {
+			fmt.Println("Error:", err)
+			os.Exit(1)
+		}
 	} else {
 		fmt.Println("Invalid path")
 		fmt.Println("Responding...")
@@ -83,6 +105,11 @@ func handleConnection(conn net.Conn) {
 }
 
 func main() {
+	// parse command line args
+	var directory string
+	flag.StringVar(&directory, "directory", "", "Directory to serve")
+	flag.Parse()
+
 	l, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {
 		fmt.Println("Failed to bind to port 4221")
@@ -96,7 +123,6 @@ func main() {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
-		go handleConnection(conn)
+		go handleConnection(conn, directory)
 	}
-
 }
