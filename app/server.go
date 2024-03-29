@@ -27,6 +27,7 @@ func handleConnection(conn net.Conn, directory string) {
 		fmt.Println("Invalid request")
 		os.Exit(1)
 	}
+	requestMethod := requestLineParts[0]
 	path := requestLineParts[1]
 	fmt.Println("Path: ", path)
 	if path == "/" {
@@ -73,26 +74,45 @@ func handleConnection(conn net.Conn, directory string) {
 				break
 			}
 		}
-	} else if strings.HasPrefix(path, "/files/") {
+	} else if strings.HasPrefix(path, "/files/") { // STAGE 7
 		filename := strings.Split(path, "/files/")[1]
 		fullFilename := directory + filename
 		fmt.Println("Full filename: ", fullFilename)
-		if _, err := os.Stat(fullFilename); err == nil {
-			content, err := os.ReadFile(fullFilename)
-			if err != nil {
-				fmt.Println("Failed to read file")
+		fmt.Println("Request method: ", requestMethod)
+		if requestMethod == "POST" {
+			// Parse request content
+			requestBody := strings.Split(request, "\r\n\r\n")[1]
+			if err := os.WriteFile(fullFilename, []byte(requestBody), 0644); err == nil {
+				fmt.Println("File written")
+				fmt.Println("Responding...")
+				conn.Write([]byte("HTTP/1.1 201 OK\r\n\r\n"))
+			} else {
+				fmt.Println("Failed to write file")
 				os.Exit(1)
 			}
-			response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Length: %d\r\nContent-Type: application/octet-stream\r\n\r\n%s", len(content), content)
-			fmt.Println("Responding...")
-			conn.Write([]byte(response))
-		} else if os.IsNotExist(err) {
-			fmt.Println("File not found")
-			fmt.Println("Responding...")
-			conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+
+		} else if requestMethod == "GET" {
+			if _, err := os.Stat(fullFilename); err == nil {
+				content, err := os.ReadFile(fullFilename)
+				if err != nil {
+					fmt.Println("Failed to read file")
+					os.Exit(1)
+				}
+				response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Length: %d\r\nContent-Type: application/octet-stream\r\n\r\n%s", len(content), content)
+				fmt.Println("Responding...")
+				conn.Write([]byte(response))
+			} else if os.IsNotExist(err) {
+				fmt.Println("File not found")
+				fmt.Println("Responding...")
+				conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+			} else {
+				fmt.Println("Error:", err)
+				os.Exit(1)
+			}
 		} else {
-			fmt.Println("Error:", err)
-			os.Exit(1)
+			fmt.Println("Invalid method")
+			fmt.Println("Responding...")
+			conn.Write([]byte("HTTP/1.1 405 Method Not Allowed\r\n\r\n"))
 		}
 	} else {
 		fmt.Println("Invalid path")
